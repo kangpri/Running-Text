@@ -1,0 +1,64 @@
+#include <MD_Parola.h>
+#include <MD_MAX72XX.h>
+#include <SPI.h>
+#include <ESP8266WiFi.h>
+#include <ESPAsyncWebServer.h>
+
+// Definisi tipe hardware dan konfigurasi pin
+#define HARDWARE_TYPE MD_MAX72XX::FC16_HW
+#define MAX_DEVICES 4
+#define DATA_PIN D7
+#define CS_PIN D4
+#define CLK_PIN D5
+
+MD_Parola myDisplay = MD_Parola(HARDWARE_TYPE, CS_PIN, MAX_DEVICES);
+AsyncWebServer server(80);
+
+// Ganti dengan SSID dan password WiFi Anda
+const char* ssid = "AZZAM_JAYA"; 
+const char* password = "00000000"; 
+
+String message = "Hallo Mas Azzam"; // Pesan awal
+char charArray[100];  // Array untuk menyimpan pesan
+
+void setup() {
+  Serial.begin(115200);
+  
+  myDisplay.begin();
+  myDisplay.setIntensity(5);
+  myDisplay.displayClear();
+
+  // Menghubungkan ke WiFi
+  WiFi.softAP(ssid, password); // Menggunakan Wemos sebagai Access Point
+
+  Serial.println("Access Point started");
+  Serial.println(WiFi.softAPIP()); // Menampilkan IP dari Wemos
+
+  // Halaman utama
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    String html = "<html><body><h1>Kontrol Running Text</h1>";
+    html += "<form action='/set' method='GET'><input name='text' type='text'><input type='submit' value='Update'></form>";
+    html += "</body></html>";
+    request->send(200, "text/html", html);
+  });
+
+  // Mengambil teks dari form
+  server.on("/set", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (request->hasParam("text")) {
+      message = request->getParam("text")->value();
+      message.toCharArray(charArray, message.length() + 1);
+      myDisplay.displayText(charArray, PA_CENTER, 50, 0, PA_SCROLL_LEFT, PA_SCROLL_LEFT);
+    }
+    request->send(200, "text/html", "Pesan diupdate ke: " + message + "<br><a href='/'>Kembali</a>");
+  });
+
+  // Memulai server
+  server.begin();
+}
+
+void loop() {
+  // Jalankan animasi display
+  if (myDisplay.displayAnimate()) {
+    myDisplay.displayReset();
+  }
+}
